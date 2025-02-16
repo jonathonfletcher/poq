@@ -1,0 +1,16 @@
+[
+    {
+        "system_id": 1,
+        "name": "Here",
+        "neighbours": [
+            2
+        ]
+    },
+    {
+        "system_id": 2,
+        "name": "There",
+        "neighbours": [
+            1
+        ]
+    }
+]

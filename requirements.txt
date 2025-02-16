@@ -1,0 +1,9 @@
+grpcio-tools
+nats-py
+opentelemetry-exporter-otlp-proto-grpc
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-instrumentation-aiohttp-client
+opentelemetry-instrumentation-grpc
+opentelemetry-instrumentation-system-metrics
+opentelemetry-instrumentation-urllib3
+python-dotenv

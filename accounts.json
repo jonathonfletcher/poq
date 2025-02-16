@@ -1,0 +1,22 @@
+[
+    {
+        "username": "userone",
+        "character_id": 1
+    },
+    {
+        "username": "usertwo",
+        "character_id": 2
+    },
+    {
+        "username": "userthree",
+        "character_id": 3
+    },
+    {
+        "username": "userfour",
+        "character_id": 4
+    },
+    {
+        "username": "userfive",
+        "character_id": 5
+    }
+]

@@ -1,0 +1,4 @@
+*.pyc
+__pycache__
+python-env
+*.code-workspace
