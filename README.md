@@ -126,7 +126,7 @@ CharacterInstance manages the state for a specific characterId and manages pub /
 
 When a CharacterInstance is started / stopped, it communicates with the SystemService to update the presence of the characerId in the correct systemId.
 
-### SystemService
+### System Service
 
 SystemService maintains state on a systemId, including the current set of active characterId in the system via a set of SystemInstances.
 

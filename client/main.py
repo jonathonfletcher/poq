@@ -91,35 +91,19 @@ class Client:
         to_client = QueueIterator()
 
         session_task = asyncio.create_task(self.stream_task(to_client, stub.StreamSession(to_server, metadata=tuple(state.metadata.items()))))
-        # character_task = asyncio.create_task(self.stream_task(to_client, stub.StreamCharacter(poq.CharacterRequest(character_id=state.character_id),
-        #                                                     metadata=tuple(state.metadata.items()))))
         tasklist = list()
 
-        # await to_server.put(poq.SessionMessageRequest(type=poq.SessionMessageType.CHARACTER_INFO, character_id=1))
-        # await to_server.put(poq.SessionMessageRequest(type=poq.SessionMessageType.SYSTEM_INFO, system_id=1))
-        
-        # await to_server.put(poq.SessionMessageRequest(type=poq.SessionMessageType.SYSTEM_INFO, system_id=1))
         await to_server.put(poq.SessionMessageRequest(type=poq.SessionMessageType.LOGIN))
         dispatch_table = {
             poq.SessionMessageType.LOGIN: self.on_message_login,
             poq.SessionMessageType.PONG: self.on_message_pong,
             poq.SessionMessageType.CHARACTER_STATIC_INFO: self.on_message_character_info
         }
-        # counter = itertools.count()
         async for in_event in to_client:
-            # in_event: poq.SessionMessageResponse
             handler_function = dispatch_table.get(in_event.type, self.on_message_default)
             if not await handler_function(in_event, to_server):
                 await to_server.put(poq.SessionMessageRequest(type=poq.SessionMessageType.LOGOUT))
                 break
-            # if in_event.type == poq.SessionMessageType.LOGIN:
-            #     await to_server.put(poq.SessionMessageRequest(type=poq.SessionMessageType.CHARACTER_INFO, character_id=in_event.character_info))
-            # if not in_event.ok:
-            #     break
-            # if in_event.type == poq.SessionMessageType.STOP:
-            #     await to_client.close()
-            # if next(counter) >= 5:
-            #     await to_client.close()
 
         await to_server.put(poq.SessionMessageRequest(type=poq.SessionMessageType.LOGOUT))
         if len(tasklist) > 0:
@@ -156,7 +140,6 @@ class Client:
 class Player:
 
     username: str
-
 
     def __init__(self, username: str):
         self.username = username
