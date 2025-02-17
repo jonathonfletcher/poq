@@ -1,0 +1,200 @@
+syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+
+package poq;
+option go_package = "/poq";
+
+
+
+// Service
+
+message ServiceStart {
+    enum ServiceType {
+        UNKNOWN = 0;
+        GATEWAY = 1;
+        SESSION = 2;
+        CHARACTER = 3;
+        SYSTEM = 4;
+    }
+
+    ServiceType type = 1;
+    google.protobuf.Timestamp timestamp = 2;
+}
+
+
+// Character
+
+message CharacterStaticInfoMessage {
+    int32 character_id = 1;
+    string name = 2;
+}
+
+message CharacterStaticInfoRequest {
+    int32 character_id = 1;
+}
+message CharacterStaticInfoResponse {
+    bool ok = 1;
+    CharacterStaticInfoMessage character_static_info = 2;
+}
+
+message CharacterLiveInfoMessage {
+    int32 character_id = 1;
+    int32 system_id = 2;
+    bool active = 3;
+}
+
+message CharacterLiveInfoRequest {
+    int32 character_id = 1;
+}
+message CharacterLiveInfoResponse {
+    bool ok = 1;
+    int32 character_id = 2;
+    CharacterLiveInfoMessage character_live_info = 3;
+    string request_topic = 4;
+    string publish_topic = 5;
+    string subscribe_topic = 6;
+}
+
+message CharacterLoginRequest {
+    int32 character_id = 1;
+}
+message CharacterLoginResponse {
+    bool ok = 1;
+    int32 character_id = 2;
+    CharacterLiveInfoMessage character_live_info = 3;
+}
+
+message CharacterLogoutRequest {
+    int32 character_id = 1;
+}
+message CharacterLogoutResponse {
+    bool ok = 1;
+    int32 character_id = 2;
+}
+
+
+// Location / Universe
+
+message SystemStaticInfoMessage {
+    int32 system_id = 1;
+    string name = 2;
+    repeated int32 neighbours = 3;
+}
+
+message Universe {
+}
+
+message UniverseRequest {
+}
+message UniverseResponse {
+    bool ok = 1;
+    repeated SystemStaticInfoMessage systems = 2;
+}
+
+message SystemStaticInfoRequest {
+    int32 system_id = 1;
+}
+message SystemStaticInfoResponse {
+    bool ok = 1;
+    int32 system_id = 2;
+    SystemStaticInfoMessage system_static_info = 3;
+}
+
+message SystemLiveInfoMessage {
+    int32 system_id = 1;
+    repeated int32 character_id = 2;
+}
+
+message SystemLiveInfoRequest {
+    int32 system_id = 1;
+}
+message SystemLiveInfoResponse {
+    bool ok = 1;
+    int32 system_id = 2;
+    SystemLiveInfoMessage system_live_info = 3;
+    string request_topic = 4;
+    string publish_topic = 5;
+    string subscribe_topic = 6;
+}
+
+message SystemSetLiveCharacterRequest {
+    int32 character_id = 1;
+    int32 system_id = 2;
+    bool present = 3;
+}
+message SystemSetLiveCharacterResponse {
+    bool ok = 1;
+    int32 character_id = 2;
+    int32 system_id = 3;
+}
+
+
+
+// Session
+
+message SessionStartRequest {
+    string username = 1;
+}
+message SessionStartResponse {
+    bool ok = 1;
+    int32 character_id = 2;
+    string request_topic = 3;
+    string publish_topic = 4;
+    string subscribe_topic = 5;
+    string session_id = 6;
+}
+
+message SessionStopRequest {
+    string session_id = 1;
+}
+message SessionStopResponse {
+    bool ok = 1;
+    string session_id = 2;
+}
+
+message SessionPing {
+    string session_id = 1;
+}
+message SessionPong {
+    string session_id = 1;
+}
+
+enum SessionMessageType {
+    UNKNOWN = 0;
+    START = 1;
+    STOP = 2;
+    PING = 3;
+    PONG = 4;
+    LOGIN = 5;
+    LOGOUT = 6;
+    CHARACTER_STATIC_INFO = 7;
+    CHARACTER_LIVE_INFO = 8;
+    SYSTEM_STATIC_INFO = 9;
+    SYSTEM_LIVE_INFO = 10;
+    JOIN_SYSTEM = 11;
+    LEAVE_SYSTEM = 12;
+    BLEUGH = 99;
+}
+
+message SessionMessageRequest {
+    SessionMessageType type = 1;
+    int32 character_id = 2;
+    int32 system_id = 3;
+}
+message SessionMessageResponse {
+    SessionMessageType type = 1;
+    bool ok = 2;
+    int32 pingpong = 4;
+    CharacterStaticInfoMessage character_static_info = 7;
+    CharacterLiveInfoMessage character_live_info = 8;
+    SystemStaticInfoMessage system_static_info = 9;
+    SystemLiveInfoMessage system_live_info = 10;
+}
+
+
+
+service PoQ {
+  rpc GetUniverse(UniverseRequest) returns (UniverseResponse);
+  rpc StartSession(SessionStartRequest) returns (SessionStartResponse);
+  rpc StreamSession(stream SessionMessageRequest) returns (stream SessionMessageResponse);
+}
