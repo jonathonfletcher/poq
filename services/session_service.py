@@ -40,6 +40,13 @@ class SessionInstance:
 
         # self.pingpong_task = None
 
+
+    def topics(self) -> poq.TopicMessage:
+        return poq.TopicMessage(
+            subscribe_topic=self.publish_topic,
+            publish_topic=self.subscribe_topic,
+            request_topic=self.request_topic)
+
     @common.telemetry.trace
     async def session_inbound_cb(self, topic: str, payload: bytes, /) -> bytes:
         msg = poq.SessionMessageRequest.FromString(payload)
@@ -115,9 +122,8 @@ class SessionService(common.messaging.MessageServiceStub):
 
             response = poq.SessionStartResponse(
                 ok=True, character_id=character_id,
-                subscribe_topic=session.publish_topic,
-                publish_topic=session.subscribe_topic,
-                session_id=session.session_id)
+                session_id=session.session_id,
+                session_topics=session.topics())
 
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: {response=}")
 

@@ -54,7 +54,7 @@ func (router *SessionRouter) Stream(ctx context.Context, stream grpc.BidiStreami
 	peer, _ := peer.FromContext(ctx)
 
 	grpcSendErrChan := make(chan error, 1)
-	grpcResponseHandler := func(msg *poq.SessionMessageResponse) error {
+	grpcResponseHandler := func(_ context.Context, msg *poq.SessionMessageResponse) error {
 		err := stream.SendMsg(msg)
 		if err != nil {
 			grpcSendErrChan <- err

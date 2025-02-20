@@ -14,7 +14,7 @@ import (
 type InfoHandler struct {
 	messaging  messaging.IMessaging
 	state      ISessionState
-	grpcFunc   grpcSendHandler
+	grpcFunc   grpcSendHandlerFn
 	dispatcher ISessionDispatcher
 }
 
@@ -37,7 +37,7 @@ func (h *InfoHandler) handleCharacterStaticInfo(ctx context.Context, msg *poq.Se
 			sessionResponseMsg = &poq.SessionMessageResponse{
 				Type:                poq.SessionMessageType_CHARACTER_STATIC_INFO,
 				CharacterStaticInfo: responseMsg.CharacterStaticInfo,
-				Ok:                  err == nil,
+				Ok:                  responseMsg.Ok,
 			}
 		}
 	}
@@ -46,7 +46,7 @@ func (h *InfoHandler) handleCharacterStaticInfo(ctx context.Context, msg *poq.Se
 		span.RecordError(err)
 	}
 
-	_ = h.grpcFunc(sessionResponseMsg)
+	_ = h.grpcFunc(ctx, sessionResponseMsg)
 	return nil
 }
 
@@ -69,7 +69,7 @@ func (h *InfoHandler) handleSystemStaticInfo(ctx context.Context, msg *poq.Sessi
 			sessionResponseMsg = &poq.SessionMessageResponse{
 				Type:             sessionResponseMsg.Type,
 				SystemStaticInfo: responseMsg.SystemStaticInfo,
-				Ok:               err == nil,
+				Ok:               responseMsg.Ok,
 			}
 		}
 	}
@@ -78,7 +78,7 @@ func (h *InfoHandler) handleSystemStaticInfo(ctx context.Context, msg *poq.Sessi
 		span.RecordError(err)
 	}
 
-	_ = h.grpcFunc(sessionResponseMsg)
+	_ = h.grpcFunc(ctx, sessionResponseMsg)
 	return nil
 }
 
@@ -87,7 +87,7 @@ func (h *InfoHandler) Shutdown(ctx context.Context) {
 	h.dispatcher.ClearDispatchHandler(poq.SessionMessageType_SYSTEM_STATIC_INFO)
 }
 
-func NewInfoHandler(messaging messaging.IMessaging, state ISessionState, dispatcher ISessionDispatcher, grpcFunc grpcSendHandler) ISessionEventHandler {
+func NewInfoHandler(messaging messaging.IMessaging, state ISessionState, dispatcher ISessionDispatcher, grpcFunc grpcSendHandlerFn) ISessionEventHandler {
 	handler := &InfoHandler{
 		messaging:  messaging,
 		state:      state,

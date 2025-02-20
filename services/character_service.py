@@ -28,25 +28,30 @@ class CharacterInstance:
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: DEFAULT system_id:{self.system_id}")
         self.publish_topic = f"PUB.CHARACTER.OUT.{self.character_id}"
         self.subscribe_topic = f"PUB.CHARACTER.IN.{self.character_id}"
-        self.request_topic = f"REQ.CHARACTER.STATIC.{self.character_id}"
+        self.request_topic = f"REQ.CHARACTER.{self.character_id}"
 
-    @common.telemetry.trace
-    async def static_info(self):
+    async def topics(self) -> poq.TopicMessage:
+        return poq.TopicMessage(
+            subscribe_topic=self.publish_topic,
+            publish_topic=self.subscribe_topic,
+            request_topic=self.request_topic)
+
+    async def static_info(self) -> poq.CharacterStaticInfoMessage:
         return poq.CharacterStaticInfoMessage(character_id=self.character_id, name=self.name)
 
-    @common.telemetry.trace
-    async def live_info(self, active=True):
+    async def live_info(self, active=True) -> poq.CharacterLiveInfoMessage:
         return poq.CharacterLiveInfoMessage(character_id=self.character_id, system_id=self.system_id, active=active)
 
     @common.telemetry.trace
     async def _update_system_presence(self, present: bool):
-        system_live_info_request = poq.SystemLiveInfoRequest(system_id=self.system_id)
-        payload = await self.msg_service.publish("REQ.SYSTEM.LIVE", system_live_info_request.SerializeToString(), True)
-        if payload:
-            system_live_info_response = poq.SystemLiveInfoResponse.FromString(payload)
-            if isinstance(system_live_info_response, poq.SystemLiveInfoResponse):
+        request_msg = poq.SystemTopicRequest(system_id=self.system_id)
+        response_bytes = await self.msg_service.publish("REQ.SYSTEM.TOPIC", request_msg.SerializeToString(), True)
+        if response_bytes:
+            response_msg = poq.SystemTopicResponse.FromString(response_bytes)
+            if isinstance(response_msg, poq.SystemTopicResponse):
+                system_topics = response_msg.system_topics
                 system_set_presence_msg = poq.SystemSetLiveCharacterRequest(character_id=self.character_id, system_id=self.system_id, present=present)
-                await self.msg_service.publish(system_live_info_response.publish_topic, system_set_presence_msg.SerializeToString(), False)
+                await self.msg_service.publish(system_topics.publish_topic, system_set_presence_msg.SerializeToString(), False)
 
     @common.telemetry.trace
     async def character_sub_cb(self, topic: str, payload: bytes, /) -> bytes:
@@ -167,6 +172,19 @@ class CharacterService(common.messaging.MessageServiceStub):
         return response.SerializeToString()
 
     @common.telemetry.trace
+    async def character_topic_cb(self, topic: str, payload: bytes, /) -> bytes:
+        request = poq.CharacterTopicRequest.FromString(payload)
+
+        response = poq.CharacterTopicResponse(ok=False, character_id=request.character_id)
+        character = self.active_character_id.get(request.character_id)
+        if isinstance(character, CharacterInstance):
+            response = poq.CharacterTopicResponse(ok=True, character_id=request.character_id,
+                                               character_topics=await character.topics())
+
+        self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} {response=}")
+        return response.SerializeToString()
+
+    @common.telemetry.trace
     async def start(self):
         start_msg = poq.ServiceStart(type=poq.ServiceStart.ServiceType.CHARACTER, timestamp=google.protobuf.timestamp_pb2.Timestamp().GetCurrentTime())
         await self.msg_service.publish("PUB.SERVICE.START", start_msg.SerializeToString(), False)
@@ -176,6 +194,7 @@ class CharacterService(common.messaging.MessageServiceStub):
         await self.msg_service.subscribe("REQ.CHARACTER.LIVE", self.character_live_info_cb, True)
         await self.msg_service.subscribe("REQ.CHARACTER.LOGIN", self.character_login_cb, True)
         await self.msg_service.subscribe("REQ.CHARACTER.LOGOUT", self.character_logout_cb, True)
+        await self.msg_service.subscribe("REQ.CHARACTER.TOPIC", self.character_topic_cb, True)
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}")
 
     @common.telemetry.trace
@@ -184,8 +203,9 @@ class CharacterService(common.messaging.MessageServiceStub):
         stop_msg = poq.ServiceStart(type=poq.ServiceStart.ServiceType.CHARACTER, timestamp=google.protobuf.timestamp_pb2.Timestamp().GetCurrentTime())
         await self.msg_service.publish("PUB.SERVICE.STOP", stop_msg.SerializeToString(), False)
 
-        await self.msg_service.unsubscribe("REQ.CHARACTER.LOGIN")
+        await self.msg_service.unsubscribe("REQ.CHARACTER.TOPIC")
         await self.msg_service.unsubscribe("REQ.CHARACTER.LOGOUT")
+        await self.msg_service.unsubscribe("REQ.CHARACTER.LOGIN")
         await self.msg_service.unsubscribe("REQ.CHARACTER.LIVE")
         await self.msg_service.unsubscribe("REQ.CHARACTER.STATIC")
 

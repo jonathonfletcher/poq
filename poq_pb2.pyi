@@ -38,6 +38,16 @@ JOIN_SYSTEM: SessionMessageType
 LEAVE_SYSTEM: SessionMessageType
 BLEUGH: SessionMessageType
 
+class TopicMessage(_message.Message):
+    __slots__ = ("request_topic", "publish_topic", "subscribe_topic")
+    REQUEST_TOPIC_FIELD_NUMBER: _ClassVar[int]
+    PUBLISH_TOPIC_FIELD_NUMBER: _ClassVar[int]
+    SUBSCRIBE_TOPIC_FIELD_NUMBER: _ClassVar[int]
+    request_topic: str
+    publish_topic: str
+    subscribe_topic: str
+    def __init__(self, request_topic: _Optional[str] = ..., publish_topic: _Optional[str] = ..., subscribe_topic: _Optional[str] = ...) -> None: ...
+
 class ServiceStart(_message.Message):
     __slots__ = ("type", "timestamp")
     class ServiceType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -142,6 +152,22 @@ class CharacterLogoutResponse(_message.Message):
     character_id: int
     def __init__(self, ok: bool = ..., character_id: _Optional[int] = ...) -> None: ...
 
+class CharacterTopicRequest(_message.Message):
+    __slots__ = ("character_id",)
+    CHARACTER_ID_FIELD_NUMBER: _ClassVar[int]
+    character_id: int
+    def __init__(self, character_id: _Optional[int] = ...) -> None: ...
+
+class CharacterTopicResponse(_message.Message):
+    __slots__ = ("ok", "character_id", "character_topics")
+    OK_FIELD_NUMBER: _ClassVar[int]
+    CHARACTER_ID_FIELD_NUMBER: _ClassVar[int]
+    CHARACTER_TOPICS_FIELD_NUMBER: _ClassVar[int]
+    ok: bool
+    character_id: int
+    character_topics: TopicMessage
+    def __init__(self, ok: bool = ..., character_id: _Optional[int] = ..., character_topics: _Optional[_Union[TopicMessage, _Mapping]] = ...) -> None: ...
+
 class SystemStaticInfoMessage(_message.Message):
     __slots__ = ("system_id", "name", "neighbours")
     SYSTEM_ID_FIELD_NUMBER: _ClassVar[int]
@@ -199,20 +225,14 @@ class SystemLiveInfoRequest(_message.Message):
     def __init__(self, system_id: _Optional[int] = ...) -> None: ...
 
 class SystemLiveInfoResponse(_message.Message):
-    __slots__ = ("ok", "system_id", "system_live_info", "request_topic", "publish_topic", "subscribe_topic")
+    __slots__ = ("ok", "system_id", "system_live_info")
     OK_FIELD_NUMBER: _ClassVar[int]
     SYSTEM_ID_FIELD_NUMBER: _ClassVar[int]
     SYSTEM_LIVE_INFO_FIELD_NUMBER: _ClassVar[int]
-    REQUEST_TOPIC_FIELD_NUMBER: _ClassVar[int]
-    PUBLISH_TOPIC_FIELD_NUMBER: _ClassVar[int]
-    SUBSCRIBE_TOPIC_FIELD_NUMBER: _ClassVar[int]
     ok: bool
     system_id: int
     system_live_info: SystemLiveInfoMessage
-    request_topic: str
-    publish_topic: str
-    subscribe_topic: str
-    def __init__(self, ok: bool = ..., system_id: _Optional[int] = ..., system_live_info: _Optional[_Union[SystemLiveInfoMessage, _Mapping]] = ..., request_topic: _Optional[str] = ..., publish_topic: _Optional[str] = ..., subscribe_topic: _Optional[str] = ...) -> None: ...
+    def __init__(self, ok: bool = ..., system_id: _Optional[int] = ..., system_live_info: _Optional[_Union[SystemLiveInfoMessage, _Mapping]] = ...) -> None: ...
 
 class SystemSetLiveCharacterRequest(_message.Message):
     __slots__ = ("character_id", "system_id", "present")
@@ -234,6 +254,22 @@ class SystemSetLiveCharacterResponse(_message.Message):
     system_id: int
     def __init__(self, ok: bool = ..., character_id: _Optional[int] = ..., system_id: _Optional[int] = ...) -> None: ...
 
+class SystemTopicRequest(_message.Message):
+    __slots__ = ("system_id",)
+    SYSTEM_ID_FIELD_NUMBER: _ClassVar[int]
+    system_id: int
+    def __init__(self, system_id: _Optional[int] = ...) -> None: ...
+
+class SystemTopicResponse(_message.Message):
+    __slots__ = ("ok", "system_id", "system_topics")
+    OK_FIELD_NUMBER: _ClassVar[int]
+    SYSTEM_ID_FIELD_NUMBER: _ClassVar[int]
+    SYSTEM_TOPICS_FIELD_NUMBER: _ClassVar[int]
+    ok: bool
+    system_id: int
+    system_topics: TopicMessage
+    def __init__(self, ok: bool = ..., system_id: _Optional[int] = ..., system_topics: _Optional[_Union[TopicMessage, _Mapping]] = ...) -> None: ...
+
 class SessionStartRequest(_message.Message):
     __slots__ = ("username",)
     USERNAME_FIELD_NUMBER: _ClassVar[int]
@@ -241,20 +277,16 @@ class SessionStartRequest(_message.Message):
     def __init__(self, username: _Optional[str] = ...) -> None: ...
 
 class SessionStartResponse(_message.Message):
-    __slots__ = ("ok", "character_id", "request_topic", "publish_topic", "subscribe_topic", "session_id")
+    __slots__ = ("ok", "character_id", "session_id", "session_topics")
     OK_FIELD_NUMBER: _ClassVar[int]
     CHARACTER_ID_FIELD_NUMBER: _ClassVar[int]
-    REQUEST_TOPIC_FIELD_NUMBER: _ClassVar[int]
-    PUBLISH_TOPIC_FIELD_NUMBER: _ClassVar[int]
-    SUBSCRIBE_TOPIC_FIELD_NUMBER: _ClassVar[int]
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    SESSION_TOPICS_FIELD_NUMBER: _ClassVar[int]
     ok: bool
     character_id: int
-    request_topic: str
-    publish_topic: str
-    subscribe_topic: str
     session_id: str
-    def __init__(self, ok: bool = ..., character_id: _Optional[int] = ..., request_topic: _Optional[str] = ..., publish_topic: _Optional[str] = ..., subscribe_topic: _Optional[str] = ..., session_id: _Optional[str] = ...) -> None: ...
+    session_topics: TopicMessage
+    def __init__(self, ok: bool = ..., character_id: _Optional[int] = ..., session_id: _Optional[str] = ..., session_topics: _Optional[_Union[TopicMessage, _Mapping]] = ...) -> None: ...
 
 class SessionStopRequest(_message.Message):
     __slots__ = ("session_id",)
