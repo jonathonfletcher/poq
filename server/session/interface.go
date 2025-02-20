@@ -16,6 +16,11 @@ type ISessionState interface {
 	Shutdown(ctx context.Context)
 }
 
+type ISessionLiveListener interface {
+	Shutdown(ctx context.Context)
+	Id(ctx context.Context) int
+}
+
 type ISessionRouter interface {
 	GetSessionId() string
 	Stream(ctx context.Context, stream grpc.BidiStreamingServer[poq.SessionMessageRequest, poq.SessionMessageResponse]) error
@@ -23,7 +28,7 @@ type ISessionRouter interface {
 	Shutdown(ctx context.Context)
 }
 
-type grpcSendHandler func(msg *poq.SessionMessageResponse) error
+type grpcSendHandlerFn func(context.Context, *poq.SessionMessageResponse) error
 type NatsHandlerFunc func(context.Context, *poq.SessionMessageRequest) error
 
 type ISessionDispatcher interface {

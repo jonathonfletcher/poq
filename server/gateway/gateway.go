@@ -83,10 +83,17 @@ func (server *PoQServer) StartSession(ctx context.Context, request *poq.SessionS
 	}
 
 	if response.Ok {
-		_ = server.manager.AddSessionRouter(ctx, response.SessionId, response.SubscribeTopic, response.PublishTopic, int(response.CharacterId))
+		sessionTopics := response.SessionTopics
+		if sessionTopics == nil {
+			err = status.Error(codes.Unimplemented, fmt.Sprintf("peer:%v, topic:%v, err:%v", peer.Addr, requestTopic, "SessionTopics missing"))
+			log.Println(err)
+			span.RecordError(err)
+		} else {
+			_ = server.manager.AddSessionRouter(ctx, response.SessionId, sessionTopics.SubscribeTopic, sessionTopics.PublishTopic, int(response.CharacterId))
+		}
 	}
 
-	return response, nil
+	return response, err
 }
 
 func (server *PoQServer) StreamSession(stream grpc.BidiStreamingServer[poq.SessionMessageRequest, poq.SessionMessageResponse]) error {

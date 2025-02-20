@@ -5,6 +5,13 @@ package poq;
 option go_package = "/poq";
 
 
+// Messaging
+
+message TopicMessage {
+    string request_topic = 1;
+    string publish_topic = 2;
+    string subscribe_topic = 3;
+}
 
 // Service
 
@@ -72,6 +79,15 @@ message CharacterLogoutResponse {
     int32 character_id = 2;
 }
 
+message CharacterTopicRequest {
+    int32 character_id = 1;
+}
+message CharacterTopicResponse {
+    bool ok = 1;
+    int32 character_id = 2;
+    TopicMessage character_topics = 3;
+}
+
 
 // Location / Universe
 
@@ -112,9 +128,6 @@ message SystemLiveInfoResponse {
     bool ok = 1;
     int32 system_id = 2;
     SystemLiveInfoMessage system_live_info = 3;
-    string request_topic = 4;
-    string publish_topic = 5;
-    string subscribe_topic = 6;
 }
 
 message SystemSetLiveCharacterRequest {
@@ -128,6 +141,14 @@ message SystemSetLiveCharacterResponse {
     int32 system_id = 3;
 }
 
+message SystemTopicRequest {
+    int32 system_id = 1;
+}
+message SystemTopicResponse {
+    bool ok = 1;
+    int32 system_id = 2;
+    TopicMessage system_topics = 3;
+}
 
 
 // Session
@@ -138,10 +159,8 @@ message SessionStartRequest {
 message SessionStartResponse {
     bool ok = 1;
     int32 character_id = 2;
-    string request_topic = 3;
-    string publish_topic = 4;
-    string subscribe_topic = 5;
-    string session_id = 6;
+    string session_id = 3;
+    TopicMessage session_topics = 4;
 }
 
 message SessionStopRequest {

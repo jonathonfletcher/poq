@@ -25,19 +25,23 @@ class SystemInstance:
         self.system_presence = set()
         self.publish_topic = f"PUB.SYSTEM.OUT.{self.system.system_id}"
         self.subscribe_topic = f"PUB.SYSTEM.IN.{self.system.system_id}"
-        self.request_topic = f"REQ.SYSTEM.STATIC.{self.system.system_id}"
+        self.request_topic = f"REQ.SYSTEM.{self.system.system_id}"
+
+    async def topics(self) -> poq.TopicMessage:
+        return poq.TopicMessage(
+            subscribe_topic=self.publish_topic,
+            publish_topic=self.subscribe_topic,
+            request_topic=self.request_topic)
+
+    async def static_info(self) -> poq.SystemStaticInfoMessage:
+        return poq.SystemStaticInfoMessage(system_id=self.system.system_id, name=self.system.name, neighbours=list(self.system.neighbours))
+
+    async def live_info(self) -> poq.SystemLiveInfoMessage:
+        return poq.SystemLiveInfoMessage(system_id=self.system.system_id, character_id=list(self.system_presence))
 
     @common.telemetry.trace
     async def system_request_cb(self, topic: str, payload: bytes, /) -> bytes:
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: system_id:{self.system.system_id}")
-
-    @common.telemetry.trace
-    async def static_info(self):
-        return poq.SystemStaticInfoMessage(system_id=self.system.system_id, name=self.system.name, neighbours=list(self.system.neighbours))
-
-    @common.telemetry.trace
-    async def live_info(self):
-        return poq.SystemLiveInfoMessage(system_id=self.system.system_id, character_id=list(self.system_presence))
 
     @common.telemetry.trace
     async def system_in_cb(self, topic: str, payload: bytes, /):
@@ -89,14 +93,12 @@ class SystemService(common.messaging.MessageServiceStub):
     @common.telemetry.trace
     async def system_static_info_cb(self, topic: str, payload: bytes, /) -> bytes:
         request = poq.SystemStaticInfoRequest.FromString(payload)
-        system_id = request.system_id
 
-        response = poq.SystemStaticInfoResponse(ok=False)
-        system = self.active_systems.get(system_id)
+        response = poq.SystemStaticInfoResponse(ok=False, system_id=request.system_id)
+        system = self.active_systems.get(request.system_id)
         if isinstance(system, SystemInstance):
-            system_static_info = await system.static_info()
-            response = poq.SystemStaticInfoResponse(ok=True,
-                system_static_info=system_static_info)
+            response = poq.SystemStaticInfoResponse(ok=True, system_id=request.system_id,
+                system_static_info=await system.static_info())
 
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} {response=}")
 
@@ -105,20 +107,29 @@ class SystemService(common.messaging.MessageServiceStub):
     @common.telemetry.trace
     async def system_live_info_cb(self, topic: str, payload: bytes, /) -> bytes:
         request = poq.SystemLiveInfoRequest.FromString(payload)
-        system_id = request.system_id
 
-        response = poq.SystemLiveInfoResponse(ok=False)
-        system = self.active_systems.get(system_id)
+        response = poq.SystemLiveInfoResponse(ok=False, system_id=request.system_id)
+        system = self.active_systems.get(request.system_id)
         if isinstance(system, SystemInstance):
             system_live_info = await system.live_info()
-            response = poq.SystemLiveInfoResponse(ok=True,
-                system_live_info=system_live_info,
-                request_topic=system.request_topic,
-                publish_topic=system.subscribe_topic,
-                subscribe_topic=system.publish_topic)
+            response = poq.SystemLiveInfoResponse(ok=True, system_id=request.system_id,
+                system_live_info=system_live_info)
 
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} {response=}")
 
+        return response.SerializeToString()
+
+    @common.telemetry.trace
+    async def system_topic_cb(self, topic: str, payload: bytes, /) -> bytes:
+        request = poq.SystemTopicRequest.FromString(payload)
+
+        response = poq.SystemTopicResponse(ok=False, system_id=request.system_id)
+        system = self.active_systems.get(request.system_id)
+        if isinstance(system, SystemInstance):
+            response = poq.SystemTopicResponse(ok=True, system_id=request.system_id,
+                                               system_topics=await system.topics())
+
+        self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} {response=}")
         return response.SerializeToString()
 
     @common.telemetry.trace
@@ -148,12 +159,14 @@ class SystemService(common.messaging.MessageServiceStub):
 
         await self.msg_service.subscribe("REQ.SYSTEM.STATIC", self.system_static_info_cb, True)
         await self.msg_service.subscribe("REQ.SYSTEM.LIVE", self.system_live_info_cb, True)
+        await self.msg_service.subscribe("REQ.SYSTEM.TOPIC", self.system_topic_cb, True)
         await self.msg_service.subscribe("REQ.UNIVERSE.STATIC", self.system_universe_cb, True)
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}")
 
     @common.telemetry.trace
     async def stop(self):
         await self.msg_service.unsubscribe("REQ.UNIVERSE.STATIC")
+        await self.msg_service.unsubscribe("REQ.SYSTEM.TOPIC")
         await self.msg_service.unsubscribe("REQ.SYSTEM.LIVE")
         await self.msg_service.unsubscribe("REQ.SYSTEM.STATIC")
 
