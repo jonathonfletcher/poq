@@ -1,6 +1,6 @@
+# Copyright (c) 2025 Jonathon Fletcher
 import asyncio
 import inspect
-import json
 import logging
 
 import dotenv
@@ -44,6 +44,7 @@ class ChatterInstance(common.service.ServiceInstance):
     async def stop(self):
         await self.msg_service.unsubscribe(self.subscribe_topic)
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: system_id:{self.system_id}")
+
 
 class ChatterService(common.service.ServiceManager):
 

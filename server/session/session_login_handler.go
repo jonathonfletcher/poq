@@ -1,3 +1,4 @@
+// Copyright (c) 2025 Jonathon Fletcher
 package session
 
 import (
