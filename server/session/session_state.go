@@ -16,15 +16,7 @@ type SessionState struct {
 }
 
 func (session *SessionState) GetCharacterId() int {
-	session.mu.Lock()
-	defer session.mu.Unlock()
 	return session.characterId
-}
-
-func (session *SessionState) SetCharacterId(characterId int) {
-	session.mu.Lock()
-	session.characterId = characterId
-	session.mu.Unlock()
 }
 
 func (session *SessionState) GetSystemId() int {
@@ -40,8 +32,6 @@ func (session *SessionState) SetSystemId(systemId int) {
 }
 
 func (session *SessionState) GetSessionId() string {
-	session.mu.Lock()
-	defer session.mu.Unlock()
 	return session.sessionId
 }
 
@@ -49,9 +39,8 @@ func (session *SessionState) Shutdown(context.Context) {
 
 }
 
-func NewSessionState(messaging messaging.IMessaging, sessionId string, characterId int) ISessionState {
+func NewSessionState(sessionId string, characterId int) ISessionState {
 	return &SessionState{
-		messaging:   messaging,
 		sessionId:   sessionId,
 		characterId: characterId,
 	}

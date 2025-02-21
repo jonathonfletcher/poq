@@ -4,31 +4,28 @@ import json
 import logging
 
 import dotenv
-import google.protobuf.timestamp_pb2
 
 import common.messaging
+import common.service
 import common.telemetry
 import common.universe
 import poq_pb2 as poq
 
 
-class CharacterInstance:
+class CharacterInstance(common.service.ServiceInstance):
 
-    msg_service: common.messaging.MessageService
-    logger: logging.Logger
     character_id: int
     system_id: int
 
     def __init__(self, msg_service: common.messaging.MessageService, character_id: int, name: str, /):
-        self.msg_service = msg_service
-        self.logger = logging.getLogger()
+        super().__init__(msg_service)
         self.character_id = character_id
         self.name = name
         self.system_id = 1
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: DEFAULT system_id:{self.system_id}")
         self.publish_topic = f"PUB.CHARACTER.OUT.{self.character_id}"
         self.subscribe_topic = f"PUB.CHARACTER.IN.{self.character_id}"
-        self.request_topic = f"REQ.CHARACTER.{self.character_id}"
+        self.request_topic = f"REQ.CHARACTER.LIVE.{self.character_id}"
 
     async def topics(self) -> poq.TopicMessage:
         return poq.TopicMessage(
@@ -41,6 +38,19 @@ class CharacterInstance:
 
     async def live_info(self, active=True) -> poq.CharacterLiveInfoMessage:
         return poq.CharacterLiveInfoMessage(character_id=self.character_id, system_id=self.system_id, active=active)
+
+    @common.telemetry.trace
+    async def character_live_request_cb(self, topic: str, payload: bytes, /) -> bytes:
+        request = poq.CharacterLiveInfoRequest.FromString(payload)
+        response = poq.CharacterLiveInfoResponse(ok=False, character_id=request.character_id)
+
+        if request.character_id == self.character_id:
+            character_live_info = await self.live_info()
+            response = poq.CharacterLiveInfoResponse(ok=True, character_id=self.character_id,
+                character_live_info=character_live_info)
+
+        self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: {response=}")
+        return response.SerializePartialToString()
 
     @common.telemetry.trace
     async def _update_system_presence(self, present: bool):
@@ -61,6 +71,7 @@ class CharacterInstance:
 
     @common.telemetry.trace
     async def start(self):
+        await self.msg_service.subscribe(self.request_topic, self.character_live_request_cb, True)
         await self.msg_service.subscribe(self.subscribe_topic, self.character_sub_cb, False)
 
         live_info_msg = await self.live_info()
@@ -72,30 +83,22 @@ class CharacterInstance:
 
     @common.telemetry.trace
     async def stop(self):
-        stop_message = poq.SessionMessageResponse(type=poq.SessionMessageType.STOP)
-        await self.msg_service.publish(self.publish_topic, stop_message.SerializeToString(), False)
-
         await self._update_system_presence(False)
 
         live_info_msg = await self.live_info(active=False)
         await self.msg_service.publish(self.publish_topic, live_info_msg.SerializeToString(), False)
 
         await self.msg_service.unsubscribe(self.subscribe_topic)
+        await self.msg_service.unsubscribe(self.request_topic)
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: character_id:{self.character_id}")
 
 
-class CharacterService(common.messaging.MessageServiceStub):
+class CharacterService(common.service.ServiceManager):
 
     def __init__(self, msg_service: common.messaging.MessageService, characters: dict[int, common.universe.Character], /):
-        self.msg_service = msg_service
-        self.logger = logging.getLogger()
+        super().__init__(msg_service, poq.ServiceType.CHARACTER_SERVICE)
         self.character_static_info = characters
         self.active_character_id: dict[int, CharacterInstance] = dict()
-
-    async def service_startup_cb(self, topic: str, payload: bytes, /) -> bytes:
-        msg = poq.ServiceStart.FromString(payload)
-        ts = msg.timestamp.ToDatetime()
-        self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: type:{msg.type}, timestamp:{ts}")
 
     @common.telemetry.trace
     async def character_static_info_cb(self, topic: str, payload: bytes, /) -> bytes:
@@ -107,24 +110,6 @@ class CharacterService(common.messaging.MessageServiceStub):
         if character_static_info:
             response = poq.CharacterStaticInfoResponse(ok=True,
                 character_static_info=poq.CharacterStaticInfoMessage(character_id=character_id, name=character_static_info.name))
-
-        self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: {response=}")
-        return response.SerializePartialToString()
-
-    @common.telemetry.trace
-    async def character_live_info_cb(self, topic: str, payload: bytes, /) -> bytes:
-        msg = poq.CharacterLiveInfoRequest.FromString(payload)
-        character_id = msg.character_id
-        character = self.active_character_id.get(character_id)
-        response = poq.CharacterLiveInfoResponse(ok=False)
-
-        if character:
-            character_live_info = await character.live_info()
-            response = poq.CharacterLiveInfoResponse(ok=True,
-                character_live_info=character_live_info,
-                request_topic=character.request_topic,
-                publish_topic=character.subscribe_topic,
-                subscribe_topic=character.publish_topic)
 
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: {response=}")
         return response.SerializePartialToString()
@@ -145,7 +130,8 @@ class CharacterService(common.messaging.MessageServiceStub):
 
         character_static_info = self.character_static_info.get(character_id)
         if character_static_info:
-            character = self.active_character_id[character_id] = CharacterInstance(self.msg_service, character_id, character_static_info.name)
+            character = CharacterInstance(self.msg_service, character_id, character_static_info.name)
+            self.active_character_id[character_id] = character
             await character.start()
             character_live_info = await character.live_info()
             response = poq.CharacterLoginResponse(ok=True, character_id=character.character_id, character_live_info=character_live_info)
@@ -186,12 +172,9 @@ class CharacterService(common.messaging.MessageServiceStub):
 
     @common.telemetry.trace
     async def start(self):
-        start_msg = poq.ServiceStart(type=poq.ServiceStart.ServiceType.CHARACTER, timestamp=google.protobuf.timestamp_pb2.Timestamp().GetCurrentTime())
-        await self.msg_service.publish("PUB.SERVICE.START", start_msg.SerializeToString(), False)
-        await self.msg_service.subscribe("PUB.SERVICE.START", self.service_startup_cb, False)
+        await super().start()
 
         await self.msg_service.subscribe("REQ.CHARACTER.STATIC", self.character_static_info_cb, True)
-        await self.msg_service.subscribe("REQ.CHARACTER.LIVE", self.character_live_info_cb, True)
         await self.msg_service.subscribe("REQ.CHARACTER.LOGIN", self.character_login_cb, True)
         await self.msg_service.subscribe("REQ.CHARACTER.LOGOUT", self.character_logout_cb, True)
         await self.msg_service.subscribe("REQ.CHARACTER.TOPIC", self.character_topic_cb, True)
@@ -199,20 +182,17 @@ class CharacterService(common.messaging.MessageServiceStub):
 
     @common.telemetry.trace
     async def stop(self):
-        await self.msg_service.unsubscribe("PUB.SERVICE.START")
-        stop_msg = poq.ServiceStart(type=poq.ServiceStart.ServiceType.CHARACTER, timestamp=google.protobuf.timestamp_pb2.Timestamp().GetCurrentTime())
-        await self.msg_service.publish("PUB.SERVICE.STOP", stop_msg.SerializeToString(), False)
 
         await self.msg_service.unsubscribe("REQ.CHARACTER.TOPIC")
         await self.msg_service.unsubscribe("REQ.CHARACTER.LOGOUT")
         await self.msg_service.unsubscribe("REQ.CHARACTER.LOGIN")
-        await self.msg_service.unsubscribe("REQ.CHARACTER.LIVE")
         await self.msg_service.unsubscribe("REQ.CHARACTER.STATIC")
 
         for _, session in self.active_character_id.items():
             await session.stop()
         self.active_character_id.clear()
 
+        await super().stop()
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}")
 
 

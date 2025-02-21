@@ -49,8 +49,7 @@ func (server *PoQServer) GetUniverse(ctx context.Context, request *poq.UniverseR
 	}
 
 	response := &poq.UniverseResponse{}
-	err = proto.Unmarshal(responseData.Data, response)
-	if err != nil {
+	if err = proto.Unmarshal(responseData.Data, response); err != nil {
 		return nil, err
 	}
 
@@ -70,15 +69,14 @@ func (server *PoQServer) StartSession(ctx context.Context, request *poq.SessionS
 	responseData, err := server.messaging.Request(ctx, requestTopic, requestData, time.Duration(5*float64(time.Second)))
 	if err != nil {
 		err := status.Error(codes.Unimplemented, fmt.Sprintf("peer:%v, topic:%v, err:%v", peer.Addr, requestTopic, err))
-		log.Println(err)
+		log.Printf("%s.%s: %s", telemetry.GetPackageName(), telemetry.GetFunctionName(), err)
 		span.RecordError(err)
 		return nil, err
 	}
 
 	response := &poq.SessionStartResponse{}
-	err = proto.Unmarshal(responseData.Data, response)
-	if err != nil {
-		log.Printf("peer:%v, err:%v", peer.Addr, err)
+	if err = proto.Unmarshal(responseData.Data, response); err != nil {
+		log.Printf("%s.%s: peer:%v, err:%v", telemetry.GetPackageName(), telemetry.GetFunctionName(), peer.Addr, err)
 		return nil, err
 	}
 
@@ -86,7 +84,7 @@ func (server *PoQServer) StartSession(ctx context.Context, request *poq.SessionS
 		sessionTopics := response.SessionTopics
 		if sessionTopics == nil {
 			err = status.Error(codes.Unimplemented, fmt.Sprintf("peer:%v, topic:%v, err:%v", peer.Addr, requestTopic, "SessionTopics missing"))
-			log.Println(err)
+			log.Printf("%s.%s: %s", telemetry.GetPackageName(), telemetry.GetFunctionName(), err)
 			span.RecordError(err)
 		} else {
 			_ = server.manager.AddSessionRouter(ctx, response.SessionId, sessionTopics.SubscribeTopic, sessionTopics.PublishTopic, int(response.CharacterId))
@@ -109,7 +107,7 @@ func (server *PoQServer) StreamSession(stream grpc.BidiStreamingServer[poq.Sessi
 	router := server.sessionRouterFromMetadata(md)
 	if router == nil {
 		err := status.Error(codes.Unimplemented, fmt.Sprintf("peer:%v, err:%v", peer.Addr, "invalid session"))
-		log.Println(err)
+		log.Printf("%s.%s: %s", telemetry.GetPackageName(), telemetry.GetFunctionName(), err)
 		span.RecordError(err)
 		return err
 	}
@@ -118,7 +116,7 @@ func (server *PoQServer) StreamSession(stream grpc.BidiStreamingServer[poq.Sessi
 
 	if streamErr := router.Stream(ctx, stream); streamErr != nil {
 		err := status.Error(codes.Unimplemented, fmt.Sprintf("peer:%v, err:%v", peer.Addr, streamErr))
-		log.Println(err)
+		log.Printf("%s.%s: %s", telemetry.GetPackageName(), telemetry.GetFunctionName(), err)
 		span.RecordError(err)
 	}
 
@@ -131,7 +129,7 @@ func (server *PoQServer) StreamSession(stream grpc.BidiStreamingServer[poq.Sessi
 		err = proto.Unmarshal(resBuf.Data, &resMsg)
 	}
 
-	log.Printf("peer:%v, topic:%v, err:%v", peer.Addr, requestTopic, err)
+	log.Printf("%s.%s: peer:%v, topic:%v, err:%v", telemetry.GetPackageName(), telemetry.GetFunctionName(), peer.Addr, requestTopic, err)
 	return err
 }
 
@@ -140,7 +138,7 @@ func newPoQServer(messaging messaging.IMessaging) *PoQServer {
 }
 
 func (server *PoQServer) poqStartup(ctx context.Context) {
-	intRequest := &poq.ServiceStart{Type: poq.ServiceStart_GATEWAY, Timestamp: timestamppb.Now()}
+	intRequest := &poq.ServiceStart{Type: poq.ServiceType_GATEWAY_SERVICE, Timestamp: timestamppb.Now()}
 	requestData, _ := proto.Marshal(intRequest)
 	_ = server.messaging.Publish(ctx, "PUB.SERVICE.START", requestData)
 }

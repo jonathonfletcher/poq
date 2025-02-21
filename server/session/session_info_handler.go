@@ -83,8 +83,11 @@ func (h *InfoHandler) handleSystemStaticInfo(ctx context.Context, msg *poq.Sessi
 }
 
 func (h *InfoHandler) Shutdown(ctx context.Context) {
-	h.dispatcher.ClearDispatchHandler(poq.SessionMessageType_CHARACTER_STATIC_INFO)
-	h.dispatcher.ClearDispatchHandler(poq.SessionMessageType_SYSTEM_STATIC_INFO)
+	if h.dispatcher != nil {
+		h.dispatcher.ClearDispatchHandler(poq.SessionMessageType_CHARACTER_STATIC_INFO)
+		h.dispatcher.ClearDispatchHandler(poq.SessionMessageType_SYSTEM_STATIC_INFO)
+		h.dispatcher = nil
+	}
 }
 
 func NewInfoHandler(messaging messaging.IMessaging, state ISessionState, dispatcher ISessionDispatcher, grpcFunc grpcSendHandlerFn) ISessionEventHandler {
