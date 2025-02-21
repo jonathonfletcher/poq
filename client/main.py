@@ -1,6 +1,7 @@
-import itertools
+# Copyright (c) 2025 Jonathon Fletcher
 import asyncio
 import inspect
+import itertools
 import logging
 import sys
 

@@ -1,4 +1,4 @@
-
+# Copyright (c) 2025 Jonathon Fletcher
 import dataclasses
 
 
