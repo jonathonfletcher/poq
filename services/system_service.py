@@ -4,28 +4,25 @@ import json
 import logging
 
 import dotenv
-import google.protobuf.timestamp_pb2
 
 import common.messaging
+import common.service
 import common.telemetry
 import common.universe
 import poq_pb2 as poq
 
 
-class SystemInstance:
+class SystemInstance(common.service.ServiceInstance):
 
-    msg_service: common.messaging.MessageService
-    logger: logging.Logger
     system: common.universe.System
 
     def __init__(self, msg_service: common.messaging.MessageService, system: common.universe.System, /):
-        self.msg_service = msg_service
-        self.logger = logging.getLogger()
+        super().__init__(msg_service)
         self.system = system
         self.system_presence = set()
         self.publish_topic = f"PUB.SYSTEM.OUT.{self.system.system_id}"
         self.subscribe_topic = f"PUB.SYSTEM.IN.{self.system.system_id}"
-        self.request_topic = f"REQ.SYSTEM.{self.system.system_id}"
+        self.request_topic = f"REQ.SYSTEM.LIVE.{self.system.system_id}"
 
     async def topics(self) -> poq.TopicMessage:
         return poq.TopicMessage(
@@ -39,9 +36,18 @@ class SystemInstance:
     async def live_info(self) -> poq.SystemLiveInfoMessage:
         return poq.SystemLiveInfoMessage(system_id=self.system.system_id, character_id=list(self.system_presence))
 
-    @common.telemetry.trace
-    async def system_request_cb(self, topic: str, payload: bytes, /) -> bytes:
-        self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: system_id:{self.system.system_id}")
+    async def system_live_request_cb(self, topic: str, payload: bytes, /) -> bytes:
+        request = poq.SystemLiveInfoRequest.FromString(payload)
+        response = poq.SystemLiveInfoResponse(ok=False, system_id=request.system_id)
+
+        if request.system_id == self.system.system_id:
+            system_live_info = await self.live_info()
+            response = poq.SystemLiveInfoResponse(ok=True, system_id=self.system.system_id,
+                system_live_info=system_live_info)
+
+        self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} {response=}")
+
+        return response.SerializeToString()
 
     @common.telemetry.trace
     async def system_in_cb(self, topic: str, payload: bytes, /):
@@ -67,28 +73,23 @@ class SystemInstance:
 
     @common.telemetry.trace
     async def start(self):
-        await self.msg_service.subscribe(self.request_topic, self.system_request_cb, True)
+        await self.msg_service.subscribe(self.request_topic, self.system_live_request_cb, True)
         await self.msg_service.subscribe(self.subscribe_topic, self.system_in_cb, False)
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: system_id:{self.system.system_id}")
 
     @common.telemetry.trace
     async def stop(self):
-        await self.msg_service.unsubscribe(f"PUB.SYSTEM.IN.{self.system.system_id}")
+        await self.msg_service.unsubscribe(self.subscribe_topic)
+        await self.msg_service.unsubscribe(self.request_topic)
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: system_id:{self.system.system_id}")
 
 
-class SystemService(common.messaging.MessageServiceStub):
+class SystemService(common.service.ServiceManager):
 
     def __init__(self, msg_service: common.messaging.MessageService, universe: dict, /):
-        self.msg_service = msg_service
-        self.logger = logging.getLogger()
+        super().__init__(msg_service, poq.ServiceType.SYSTEM_SERVICE)
         self.universe = universe
         self.active_systems: dict[int, SystemInstance] = dict()
-
-    async def service_startup_cb(self, topic: str, payload: bytes, /) -> bytes:
-        msg = poq.ServiceStart.FromString(payload)
-        ts = msg.timestamp.ToDatetime()
-        self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}: type:{msg.type}, timestamp:{ts}")
 
     @common.telemetry.trace
     async def system_static_info_cb(self, topic: str, payload: bytes, /) -> bytes:
@@ -99,21 +100,6 @@ class SystemService(common.messaging.MessageServiceStub):
         if isinstance(system, SystemInstance):
             response = poq.SystemStaticInfoResponse(ok=True, system_id=request.system_id,
                 system_static_info=await system.static_info())
-
-        self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} {response=}")
-
-        return response.SerializeToString()
-
-    @common.telemetry.trace
-    async def system_live_info_cb(self, topic: str, payload: bytes, /) -> bytes:
-        request = poq.SystemLiveInfoRequest.FromString(payload)
-
-        response = poq.SystemLiveInfoResponse(ok=False, system_id=request.system_id)
-        system = self.active_systems.get(request.system_id)
-        if isinstance(system, SystemInstance):
-            system_live_info = await system.live_info()
-            response = poq.SystemLiveInfoResponse(ok=True, system_id=request.system_id,
-                system_live_info=system_live_info)
 
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} {response=}")
 
@@ -148,9 +134,7 @@ class SystemService(common.messaging.MessageServiceStub):
 
     @common.telemetry.trace
     async def start(self):
-        start_msg = poq.ServiceStart(type=poq.ServiceStart.ServiceType.SYSTEM, timestamp=google.protobuf.timestamp_pb2.Timestamp().GetCurrentTime())
-        await self.msg_service.publish("PUB.SERVICE.START", start_msg.SerializeToString(), False)
-        await self.msg_service.subscribe("PUB.SERVICE.START", self.service_startup_cb, False)
+        await super().start()
 
         for _, system in self.universe.items():
             s = SystemInstance(self.msg_service, system)
@@ -158,26 +142,24 @@ class SystemService(common.messaging.MessageServiceStub):
             self.active_systems[s.system.system_id] = s
 
         await self.msg_service.subscribe("REQ.SYSTEM.STATIC", self.system_static_info_cb, True)
-        await self.msg_service.subscribe("REQ.SYSTEM.LIVE", self.system_live_info_cb, True)
         await self.msg_service.subscribe("REQ.SYSTEM.TOPIC", self.system_topic_cb, True)
+
         await self.msg_service.subscribe("REQ.UNIVERSE.STATIC", self.system_universe_cb, True)
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}")
 
     @common.telemetry.trace
     async def stop(self):
         await self.msg_service.unsubscribe("REQ.UNIVERSE.STATIC")
-        await self.msg_service.unsubscribe("REQ.SYSTEM.TOPIC")
-        await self.msg_service.unsubscribe("REQ.SYSTEM.LIVE")
-        await self.msg_service.unsubscribe("REQ.SYSTEM.STATIC")
 
-        await self.msg_service.unsubscribe("PUB.SERVICE.START")
-        stop_msg = poq.ServiceStart(type=poq.ServiceStart.ServiceType.SYSTEM, timestamp=google.protobuf.timestamp_pb2.Timestamp().GetCurrentTime())
-        await self.msg_service.publish("PUB.SERVICE.STOP", stop_msg.SerializeToString(), False)
+        await self.msg_service.unsubscribe("REQ.SYSTEM.TOPIC")
+        await self.msg_service.unsubscribe("REQ.SYSTEM.STATIC")
 
         for _, session in self.active_systems.items():
             await session.stop()
         self.active_systems.clear()
         self.logger.info(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name}")
+
+        await super().stop()
 
 
 async def async_main(msg_service: common.messaging.MessageService, universe: dict):

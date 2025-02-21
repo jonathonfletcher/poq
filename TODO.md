@@ -13,13 +13,7 @@
 
 - Increase coverage
 
-### Services
-
-- Separate the LiveInfo requests from the topic requests. Change the operating model to request the LiveInfo topics for a service instance, subscribe as needed, then finally request the LiveInfo status in case we missed an update.
-
-
 ### Functionality
 
-- Implement LiveInfo subscriptions to the set CharacterID in the current room.
 - Implement Room Moves.
 

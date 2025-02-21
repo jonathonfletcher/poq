@@ -165,12 +165,3 @@ class MessageService:
                 self.logger.error(f"{self.__init__.__class__}.{inspect.currentframe().f_code.co_name}: {ex=}")
                 raise ex
             return None
-
-
-class MessageServiceStub:
-
-    async def start(self):
-        pass
-
-    async def stop(self):
-        pass

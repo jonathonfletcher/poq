@@ -7,36 +7,43 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class ServiceType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    UNKNOWN_SERVICE: _ClassVar[ServiceType]
+    GATEWAY_SERVICE: _ClassVar[ServiceType]
+    SESSION_SERVICE: _ClassVar[ServiceType]
+    CHARACTER_SERVICE: _ClassVar[ServiceType]
+    SYSTEM_SERVICE: _ClassVar[ServiceType]
+    CHATTER_SERVICE: _ClassVar[ServiceType]
+
 class SessionMessageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
-    UNKNOWN: _ClassVar[SessionMessageType]
+    UNKNOWN_MESSAGE_TYPE: _ClassVar[SessionMessageType]
     START: _ClassVar[SessionMessageType]
     STOP: _ClassVar[SessionMessageType]
-    PING: _ClassVar[SessionMessageType]
-    PONG: _ClassVar[SessionMessageType]
     LOGIN: _ClassVar[SessionMessageType]
     LOGOUT: _ClassVar[SessionMessageType]
     CHARACTER_STATIC_INFO: _ClassVar[SessionMessageType]
     CHARACTER_LIVE_INFO: _ClassVar[SessionMessageType]
     SYSTEM_STATIC_INFO: _ClassVar[SessionMessageType]
     SYSTEM_LIVE_INFO: _ClassVar[SessionMessageType]
-    JOIN_SYSTEM: _ClassVar[SessionMessageType]
-    LEAVE_SYSTEM: _ClassVar[SessionMessageType]
-    BLEUGH: _ClassVar[SessionMessageType]
-UNKNOWN: SessionMessageType
+    CHATTER: _ClassVar[SessionMessageType]
+UNKNOWN_SERVICE: ServiceType
+GATEWAY_SERVICE: ServiceType
+SESSION_SERVICE: ServiceType
+CHARACTER_SERVICE: ServiceType
+SYSTEM_SERVICE: ServiceType
+CHATTER_SERVICE: ServiceType
+UNKNOWN_MESSAGE_TYPE: SessionMessageType
 START: SessionMessageType
 STOP: SessionMessageType
-PING: SessionMessageType
-PONG: SessionMessageType
 LOGIN: SessionMessageType
 LOGOUT: SessionMessageType
 CHARACTER_STATIC_INFO: SessionMessageType
 CHARACTER_LIVE_INFO: SessionMessageType
 SYSTEM_STATIC_INFO: SessionMessageType
 SYSTEM_LIVE_INFO: SessionMessageType
-JOIN_SYSTEM: SessionMessageType
-LEAVE_SYSTEM: SessionMessageType
-BLEUGH: SessionMessageType
+CHATTER: SessionMessageType
 
 class TopicMessage(_message.Message):
     __slots__ = ("request_topic", "publish_topic", "subscribe_topic")
@@ -50,23 +57,11 @@ class TopicMessage(_message.Message):
 
 class ServiceStart(_message.Message):
     __slots__ = ("type", "timestamp")
-    class ServiceType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-        __slots__ = ()
-        UNKNOWN: _ClassVar[ServiceStart.ServiceType]
-        GATEWAY: _ClassVar[ServiceStart.ServiceType]
-        SESSION: _ClassVar[ServiceStart.ServiceType]
-        CHARACTER: _ClassVar[ServiceStart.ServiceType]
-        SYSTEM: _ClassVar[ServiceStart.ServiceType]
-    UNKNOWN: ServiceStart.ServiceType
-    GATEWAY: ServiceStart.ServiceType
-    SESSION: ServiceStart.ServiceType
-    CHARACTER: ServiceStart.ServiceType
-    SYSTEM: ServiceStart.ServiceType
     TYPE_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
-    type: ServiceStart.ServiceType
+    type: ServiceType
     timestamp: _timestamp_pb2.Timestamp
-    def __init__(self, type: _Optional[_Union[ServiceStart.ServiceType, str]] = ..., timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, type: _Optional[_Union[ServiceType, str]] = ..., timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class CharacterStaticInfoMessage(_message.Message):
     __slots__ = ("character_id", "name")
@@ -107,20 +102,14 @@ class CharacterLiveInfoRequest(_message.Message):
     def __init__(self, character_id: _Optional[int] = ...) -> None: ...
 
 class CharacterLiveInfoResponse(_message.Message):
-    __slots__ = ("ok", "character_id", "character_live_info", "request_topic", "publish_topic", "subscribe_topic")
+    __slots__ = ("ok", "character_id", "character_live_info")
     OK_FIELD_NUMBER: _ClassVar[int]
     CHARACTER_ID_FIELD_NUMBER: _ClassVar[int]
     CHARACTER_LIVE_INFO_FIELD_NUMBER: _ClassVar[int]
-    REQUEST_TOPIC_FIELD_NUMBER: _ClassVar[int]
-    PUBLISH_TOPIC_FIELD_NUMBER: _ClassVar[int]
-    SUBSCRIBE_TOPIC_FIELD_NUMBER: _ClassVar[int]
     ok: bool
     character_id: int
     character_live_info: CharacterLiveInfoMessage
-    request_topic: str
-    publish_topic: str
-    subscribe_topic: str
-    def __init__(self, ok: bool = ..., character_id: _Optional[int] = ..., character_live_info: _Optional[_Union[CharacterLiveInfoMessage, _Mapping]] = ..., request_topic: _Optional[str] = ..., publish_topic: _Optional[str] = ..., subscribe_topic: _Optional[str] = ...) -> None: ...
+    def __init__(self, ok: bool = ..., character_id: _Optional[int] = ..., character_live_info: _Optional[_Union[CharacterLiveInfoMessage, _Mapping]] = ...) -> None: ...
 
 class CharacterLoginRequest(_message.Message):
     __slots__ = ("character_id",)
@@ -167,6 +156,32 @@ class CharacterTopicResponse(_message.Message):
     character_id: int
     character_topics: TopicMessage
     def __init__(self, ok: bool = ..., character_id: _Optional[int] = ..., character_topics: _Optional[_Union[TopicMessage, _Mapping]] = ...) -> None: ...
+
+class ChatterMessage(_message.Message):
+    __slots__ = ("character_id", "system_id", "text")
+    CHARACTER_ID_FIELD_NUMBER: _ClassVar[int]
+    SYSTEM_ID_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    character_id: int
+    system_id: int
+    text: str
+    def __init__(self, character_id: _Optional[int] = ..., system_id: _Optional[int] = ..., text: _Optional[str] = ...) -> None: ...
+
+class ChatterTopicRequest(_message.Message):
+    __slots__ = ("system_id",)
+    SYSTEM_ID_FIELD_NUMBER: _ClassVar[int]
+    system_id: int
+    def __init__(self, system_id: _Optional[int] = ...) -> None: ...
+
+class ChatterTopicResponse(_message.Message):
+    __slots__ = ("ok", "system_id", "chatter_topics")
+    OK_FIELD_NUMBER: _ClassVar[int]
+    SYSTEM_ID_FIELD_NUMBER: _ClassVar[int]
+    CHATTER_TOPICS_FIELD_NUMBER: _ClassVar[int]
+    ok: bool
+    system_id: int
+    chatter_topics: TopicMessage
+    def __init__(self, ok: bool = ..., system_id: _Optional[int] = ..., chatter_topics: _Optional[_Union[TopicMessage, _Mapping]] = ...) -> None: ...
 
 class SystemStaticInfoMessage(_message.Message):
     __slots__ = ("system_id", "name", "neighbours")
@@ -315,29 +330,31 @@ class SessionPong(_message.Message):
     def __init__(self, session_id: _Optional[str] = ...) -> None: ...
 
 class SessionMessageRequest(_message.Message):
-    __slots__ = ("type", "character_id", "system_id")
+    __slots__ = ("type", "character_id", "system_id", "chatter")
     TYPE_FIELD_NUMBER: _ClassVar[int]
     CHARACTER_ID_FIELD_NUMBER: _ClassVar[int]
     SYSTEM_ID_FIELD_NUMBER: _ClassVar[int]
+    CHATTER_FIELD_NUMBER: _ClassVar[int]
     type: SessionMessageType
     character_id: int
     system_id: int
-    def __init__(self, type: _Optional[_Union[SessionMessageType, str]] = ..., character_id: _Optional[int] = ..., system_id: _Optional[int] = ...) -> None: ...
+    chatter: ChatterMessage
+    def __init__(self, type: _Optional[_Union[SessionMessageType, str]] = ..., character_id: _Optional[int] = ..., system_id: _Optional[int] = ..., chatter: _Optional[_Union[ChatterMessage, _Mapping]] = ...) -> None: ...
 
 class SessionMessageResponse(_message.Message):
-    __slots__ = ("type", "ok", "pingpong", "character_static_info", "character_live_info", "system_static_info", "system_live_info")
+    __slots__ = ("type", "ok", "character_static_info", "character_live_info", "system_static_info", "system_live_info", "chatter")
     TYPE_FIELD_NUMBER: _ClassVar[int]
     OK_FIELD_NUMBER: _ClassVar[int]
-    PINGPONG_FIELD_NUMBER: _ClassVar[int]
     CHARACTER_STATIC_INFO_FIELD_NUMBER: _ClassVar[int]
     CHARACTER_LIVE_INFO_FIELD_NUMBER: _ClassVar[int]
     SYSTEM_STATIC_INFO_FIELD_NUMBER: _ClassVar[int]
     SYSTEM_LIVE_INFO_FIELD_NUMBER: _ClassVar[int]
+    CHATTER_FIELD_NUMBER: _ClassVar[int]
     type: SessionMessageType
     ok: bool
-    pingpong: int
     character_static_info: CharacterStaticInfoMessage
     character_live_info: CharacterLiveInfoMessage
     system_static_info: SystemStaticInfoMessage
     system_live_info: SystemLiveInfoMessage
-    def __init__(self, type: _Optional[_Union[SessionMessageType, str]] = ..., ok: bool = ..., pingpong: _Optional[int] = ..., character_static_info: _Optional[_Union[CharacterStaticInfoMessage, _Mapping]] = ..., character_live_info: _Optional[_Union[CharacterLiveInfoMessage, _Mapping]] = ..., system_static_info: _Optional[_Union[SystemStaticInfoMessage, _Mapping]] = ..., system_live_info: _Optional[_Union[SystemLiveInfoMessage, _Mapping]] = ...) -> None: ...
+    chatter: ChatterMessage
+    def __init__(self, type: _Optional[_Union[SessionMessageType, str]] = ..., ok: bool = ..., character_static_info: _Optional[_Union[CharacterStaticInfoMessage, _Mapping]] = ..., character_live_info: _Optional[_Union[CharacterLiveInfoMessage, _Mapping]] = ..., system_static_info: _Optional[_Union[SystemStaticInfoMessage, _Mapping]] = ..., system_live_info: _Optional[_Union[SystemLiveInfoMessage, _Mapping]] = ..., chatter: _Optional[_Union[ChatterMessage, _Mapping]] = ...) -> None: ...

@@ -15,15 +15,16 @@ message TopicMessage {
 
 // Service
 
-message ServiceStart {
-    enum ServiceType {
-        UNKNOWN = 0;
-        GATEWAY = 1;
-        SESSION = 2;
-        CHARACTER = 3;
-        SYSTEM = 4;
-    }
+enum ServiceType {
+    UNKNOWN_SERVICE = 0;
+    GATEWAY_SERVICE = 1;
+    SESSION_SERVICE = 2;
+    CHARACTER_SERVICE = 3;
+    SYSTEM_SERVICE = 4;
+    CHATTER_SERVICE = 5;
+}
 
+message ServiceStart {
     ServiceType type = 1;
     google.protobuf.Timestamp timestamp = 2;
 }
@@ -57,9 +58,6 @@ message CharacterLiveInfoResponse {
     bool ok = 1;
     int32 character_id = 2;
     CharacterLiveInfoMessage character_live_info = 3;
-    string request_topic = 4;
-    string publish_topic = 5;
-    string subscribe_topic = 6;
 }
 
 message CharacterLoginRequest {
@@ -86,6 +84,24 @@ message CharacterTopicResponse {
     bool ok = 1;
     int32 character_id = 2;
     TopicMessage character_topics = 3;
+}
+
+
+// chatter
+
+message ChatterMessage {
+    int32 character_id = 1;
+    int32 system_id = 2;
+    string text = 3;
+}
+
+message ChatterTopicRequest {
+    int32 system_id = 1;
+}
+message ChatterTopicResponse {
+    bool ok = 1;
+    int32 system_id = 2;
+    TopicMessage chatter_topics = 3;
 }
 
 
@@ -179,35 +195,36 @@ message SessionPong {
 }
 
 enum SessionMessageType {
-    UNKNOWN = 0;
+    UNKNOWN_MESSAGE_TYPE = 0;
     START = 1;
     STOP = 2;
-    PING = 3;
-    PONG = 4;
+    // PING = 3;
+    // PONG = 4;
     LOGIN = 5;
     LOGOUT = 6;
     CHARACTER_STATIC_INFO = 7;
     CHARACTER_LIVE_INFO = 8;
     SYSTEM_STATIC_INFO = 9;
     SYSTEM_LIVE_INFO = 10;
-    JOIN_SYSTEM = 11;
-    LEAVE_SYSTEM = 12;
-    BLEUGH = 99;
+    // JOIN_SYSTEM = 11;
+    // LEAVE_SYSTEM = 12;
+    CHATTER = 13;
 }
 
 message SessionMessageRequest {
     SessionMessageType type = 1;
     int32 character_id = 2;
     int32 system_id = 3;
+    ChatterMessage chatter = 4;
 }
 message SessionMessageResponse {
     SessionMessageType type = 1;
     bool ok = 2;
-    int32 pingpong = 4;
     CharacterStaticInfoMessage character_static_info = 7;
     CharacterLiveInfoMessage character_live_info = 8;
     SystemStaticInfoMessage system_static_info = 9;
     SystemLiveInfoMessage system_live_info = 10;
+    ChatterMessage chatter = 13;
 }
 
 

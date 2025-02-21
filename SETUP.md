@@ -87,7 +87,7 @@ pip install -r requirements.txt
 
 1: Services
 
-Three terminals, one for each of SessionService / SystemService / CharacterService
+Four terminals, one for each of SessionService / SystemService / CharacterService / ChatterService
 
 ```shell
 . ./python-env/bin/activate
@@ -106,11 +106,15 @@ env PYTHONPATH=${PWD} python services/system_service.py
 ```shell
 . ./python-env/bin/activate
 env PYTHONPATH=${PWD} python services/character_service.py
-
 ```
 
-(SystemService will read `characters.json` for the valid character_id / static info)
+(CharacterService will read `characters.json` for the valid character_id / static info)
 
+
+```shell
+. ./python-env/bin/activate
+env PYTHONPATH=${PWD} python services/chatter_service.py
+```
 
 2: Server
 

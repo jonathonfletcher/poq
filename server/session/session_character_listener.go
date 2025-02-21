@@ -41,25 +41,20 @@ func (l *LiveCharacterListener) runCharacterLiveInfoListener(ctx context.Context
 		defer span.End()
 
 		outMsg := &poq.CharacterLiveInfoMessage{}
-		err := proto.Unmarshal(msg.Data, outMsg)
-		if err == nil {
+		if err := proto.Unmarshal(msg.Data, outMsg); err != nil {
+			span.RecordError(err)
+		} else {
 			sessionResponseMsg := &poq.SessionMessageResponse{
 				Type:              poq.SessionMessageType_CHARACTER_LIVE_INFO,
 				CharacterLiveInfo: outMsg}
 			_ = l.grpcSendFunc(ctx, sessionResponseMsg)
-			systemId := int(outMsg.SystemId)
-			log.Printf("%s.%s %d",
-				telemetry.GetPackageName(), telemetry.GetFunctionName(),
-				systemId)
-		} else {
-			span.RecordError(err)
 		}
 	})
 	defer func() {
 		_ = sub.Unsubscribe()
 	}()
 	<-l.cxl
-	log.Printf("%s.%s: stopping listening for %d", telemetry.GetPackageName(), telemetry.GetFunctionName(), l.id)
+	log.Printf("%s.%s: stopping listening for characterId:%d", telemetry.GetPackageName(), telemetry.GetFunctionName(), l.id)
 }
 
 func (h *LoginHandler) MakeCharacterLiveInfoListener(ctx context.Context, characterId int, grpcSendFn grpcSendHandlerFn) ISessionLiveListener {
@@ -68,6 +63,7 @@ func (h *LoginHandler) MakeCharacterLiveInfoListener(ctx context.Context, charac
 	ctx, span := tracer.Start(ctx, telemetry.GetFunctionName())
 	defer span.End()
 
+	log.Printf("%s.%s(characterId:%d)", telemetry.GetPackageName(), telemetry.GetFunctionName(), characterId)
 	l := &LiveCharacterListener{
 		messaging:    h.messaging,
 		grpcSendFunc: grpcSendFn,
@@ -79,33 +75,31 @@ func (h *LoginHandler) MakeCharacterLiveInfoListener(ctx context.Context, charac
 	topicRequest := &poq.CharacterTopicRequest{CharacterId: int32(characterId)}
 	topicResponse := &poq.CharacterTopicResponse{}
 
+	liveRequestTopic := ""
 	requestBytes, _ := proto.Marshal(topicRequest)
 	responseBytes, err := l.messaging.Request(ctx, reqTopic, requestBytes, time.Duration(10*float64(time.Second)))
 	if err != nil {
 		span.RecordError(err)
+	} else if err := proto.Unmarshal(responseBytes.Data, topicResponse); err != nil {
+		span.RecordError(err)
 	} else {
-		if err := proto.Unmarshal(responseBytes.Data, topicResponse); err != nil {
-			span.RecordError(err)
-		} else {
-			if topicResponse.CharacterTopics != nil {
-
-			}
+		if topicResponse.CharacterTopics != nil {
+			liveRequestTopic = topicResponse.CharacterTopics.RequestTopic
 			if topicResponse.CharacterTopics.SubscribeTopic != "" {
 				go l.runCharacterLiveInfoListener(ctx, topicResponse.CharacterTopics.SubscribeTopic)
 			}
 		}
 	}
 
-	reqTopic = "REQ.CHARACTER.LIVE"
-	liveRequest := &poq.CharacterLiveInfoRequest{CharacterId: int32(characterId)}
-	liveResponse := &poq.CharacterLiveInfoResponse{}
+	if liveRequestTopic != "" {
+		liveRequest := &poq.CharacterLiveInfoRequest{CharacterId: int32(characterId)}
+		liveResponse := &poq.CharacterLiveInfoResponse{}
 
-	requestBytes, _ = proto.Marshal(liveRequest)
-	responseBytes, err = l.messaging.Request(ctx, reqTopic, requestBytes, time.Duration(10*float64(time.Second)))
-	if err != nil {
-		span.RecordError(err)
-	} else {
-		if err := proto.Unmarshal(responseBytes.Data, liveResponse); err != nil {
+		requestBytes, _ = proto.Marshal(liveRequest)
+		responseBytes, err = l.messaging.Request(ctx, liveRequestTopic, requestBytes, time.Duration(10*float64(time.Second)))
+		if err != nil {
+			span.RecordError(err)
+		} else if err := proto.Unmarshal(responseBytes.Data, liveResponse); err != nil {
 			span.RecordError(err)
 		} else {
 			sessionResponseMsg := &poq.SessionMessageResponse{

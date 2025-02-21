@@ -139,3 +139,9 @@ A mapping of characterid -> static info is read from file at startup.
 #### SystemInstance
 
 SystemInstance manages the state for a specific systemId and manages pub / sub / req topics specific to the instance / systemId.
+
+### Chatter Service
+
+ChatterService maintains state on a systemId.
+
+It echos incoming chatter messages out to listeners.

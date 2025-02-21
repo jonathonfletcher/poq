@@ -10,7 +10,6 @@ import (
 type ISessionState interface {
 	GetSessionId() string
 	GetCharacterId() int
-	SetCharacterId(character_id int)
 	GetSystemId() int
 	SetSystemId(system_id int)
 	Shutdown(ctx context.Context)
@@ -24,7 +23,7 @@ type ISessionLiveListener interface {
 type ISessionRouter interface {
 	GetSessionId() string
 	Stream(ctx context.Context, stream grpc.BidiStreamingServer[poq.SessionMessageRequest, poq.SessionMessageResponse]) error
-	State() ISessionState
+	GetState() ISessionState
 	Shutdown(ctx context.Context)
 }
 

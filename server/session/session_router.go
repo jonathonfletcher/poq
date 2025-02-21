@@ -37,7 +37,7 @@ func (router *SessionRouter) ClearDispatchHandler(reqType poq.SessionMessageType
 	delete(router.dispatchMap, reqType)
 }
 
-func (router *SessionRouter) State() ISessionState {
+func (router *SessionRouter) GetState() ISessionState {
 	return router.state
 }
 
@@ -62,11 +62,15 @@ func (router *SessionRouter) Stream(ctx context.Context, stream grpc.BidiStreami
 		return err
 	}
 
-	infoHandler := NewInfoHandler(router.messaging, router.state, router, grpcResponseHandler)
+	infoHandler := NewInfoHandler(router.messaging, router.GetState(), router, grpcResponseHandler)
 	defer infoHandler.Shutdown(ctx)
 
-	loginHandler := NewLoginHandler(router.messaging, router.state, router, grpcResponseHandler)
+	loginHandler := NewLoginHandler(router.messaging, router.GetState(), router, grpcResponseHandler)
 	defer loginHandler.Shutdown(ctx)
+
+	chatterHandler := NewChatterHandler(router.messaging, router.GetState(), router)
+	defer chatterHandler.Shutdown(ctx)
+
 	pubCounter := 0
 	subCounter := 0
 
@@ -152,7 +156,7 @@ func NewSessionRouter(messaging messaging.IMessaging, sessionId string, subscrib
 		sessionId:      sessionId,
 		subscribeTopic: subscribeTopic,
 		publishTopic:   publishTopic,
-		state:          NewSessionState(messaging, sessionId, characterId),
+		state:          NewSessionState(sessionId, characterId),
 		dispatchMap:    make(map[poq.SessionMessageType]NatsHandlerFunc),
 	}
 }
