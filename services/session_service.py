@@ -156,7 +156,7 @@ if __name__ == "__main__":
     common.telemetry.initialize_telemetry()
     logging.basicConfig(level=logging.INFO)
     accounts = dict()
-    with open('accounts.json', 'r') as ifp:
+    with open('accounts.json') as ifp:
         for record in json.load(ifp):
             accounts[record['username']] = record['character_id']
 
