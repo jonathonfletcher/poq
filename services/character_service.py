@@ -209,7 +209,7 @@ if __name__ == "__main__":
     common.telemetry.initialize_telemetry()
     logging.basicConfig(level=logging.INFO)
     characters = dict()
-    with open('characters.json', 'r') as ifp:
+    with open('characters.json') as ifp:
         for record in json.load(ifp):
             system = common.universe.Character(**record)
             characters[system.character_id] = system

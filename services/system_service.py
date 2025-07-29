@@ -175,7 +175,7 @@ if __name__ == "__main__":
     common.telemetry.initialize_telemetry()
     logging.basicConfig(level=logging.INFO)
     universe: dict[int, common.universe.System] = dict()
-    with open('universe.json', 'r') as ifp:
+    with open('universe.json') as ifp:
         for record in json.load(ifp):
             system = common.universe.System(**record)
             universe[system.system_id] = system
